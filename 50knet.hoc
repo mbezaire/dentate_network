@@ -1,0 +1,1662 @@
+// This is a fully wired network that functions with 50000 GCs and 1 PP input
+// Auto init and run
+
+
+secondorder=2 
+tstep=0
+period=2
+dt=0.1
+tstop=100	//1500
+
+objref parameters
+
+parameters = new File()
+parameters.ropen("parameters.dat")
+percentSclerosis = parameters.scanvar
+scalingFactor = parameters.scanvar
+ngcell = parameters.scanvar
+nmcell = parameters.scanvar
+nbcell = parameters.scanvar
+nhcell = parameters.scanvar
+npp = parameters.scanvar
+randnet = parameters.scanvar
+parameters.close()
+
+// define final network size after sclerosis
+nmcell = int(nmcell * ((100-percentSclerosis)/100))
+nhcell = int(nhcell * ((100-percentSclerosis)/100))
+if (nmcell == 0) {nmcell = 1}
+if (nhcell == 0) {nhcell = 1}
+totalCells = ngcell + nmcell + nbcell + nhcell
+
+
+//***********************************************************************************************
+//Defining granule cell
+objref Gcell[ngcell]
+
+
+	begintemplate GranuleCell
+
+
+ndend1=4
+ndend2=4
+public  pre_list, connect_pre, subsets, is_art, is_connected
+public  vbc2gc, vmc2gc, vhc2gc, vgc2bc, vbc2bc, vmc2bc, vhc2bc, vgc2mc, vbc2mc, vmc2mc, vhc2mc, vgc2hc, vmc2hc
+public soma, gcdend1, gcdend2
+public all, gcldend, pdend, mdend, ddend
+
+nst=10
+	objectvar stim[nst]
+double stimdur[nst], stimdel[nst], stimamp[nst]
+public stim, stimdur, stimamp, stimdel
+create soma, gcdend1[ndend1], gcdend2[ndend2]
+objref syn, pre_list
+
+
+proc init() {
+	pre_list = new List()
+	subsets()
+	gctemp()
+	synapse()
+}
+objref all, gcldend, pdend, mdend, ddend
+proc subsets(){ local i
+	objref all, gcldend, pdend, mdend, ddend
+	all = new SectionList()
+		soma all.append()
+		for i=0, 3 gcdend1 [i] all.append()
+		for i=0, 3 gcdend2 [i] all.append()
+
+	gcldend  = new SectionList()
+		gcdend1 [0] gcldend.append()
+		gcdend2 [0] gcldend.append()
+
+	pdend  = new SectionList()
+		gcdend1 [1] pdend.append()
+		gcdend2 [1] pdend.append()
+
+	mdend  = new SectionList()
+		gcdend1 [2] mdend.append()
+		gcdend2 [2] mdend.append()
+
+	ddend  = new SectionList()
+		gcdend1 [3] ddend.append()
+		gcdend2 [3] ddend.append()
+}
+proc gctemp() {
+
+	soma {nseg=1 L=16.8 diam=16.8} // changed L & diam
+		
+	gcdend1 [0] {nseg=1 L=50 diam=3}
+	for i = 1, 3	gcdend1 [i] {nseg=1 L=150 diam=3}
+
+	gcdend2 [0] {nseg=1 L=50 diam=3}
+	for i = 1, 3	gcdend2 [i] {nseg=1 L=150 diam=3}	 	
+
+    
+	forsec all {
+		insert ccanl
+	catau_ccanl = 10
+	caiinf_ccanl = 5.e-6
+	Ra=210
+	}
+
+	soma {insert ichan2  //ildikos ichan
+	gnatbar_ichan2=0.12  //original 0.030 to .055 
+	gkfbar_ichan2=0.016  //original 0.015
+	gksbar_ichan2=0.006
+		insert borgka
+	gkabar_borgka=0.012
+		insert nca  // HAV-N- Ca channel
+	gncabar_nca=0.002  // check to modify- original 0.004
+		insert lca 
+	glcabar_lca=0.005
+		insert cat
+	gcatbar_cat=0.000037
+		insert gskch
+	gskbar_gskch=0.001
+		insert cagk
+	gkbar_cagk=0.0006
+	gl_ichan2 = 0.00004
+	cm=1
+
+} 
+
+		forsec gcldend {insert ichan2
+	gnatbar_ichan2=0.018  //original 0.015
+	gkfbar_ichan2=0.004
+	gksbar_ichan2=0.006
+		insert nca  // HAV-N- Ca channel
+	gncabar_nca=0.003  // check to modify- original 0.004
+		insert lca 
+	glcabar_lca=0.0075
+		insert cat
+	gcatbar_cat=0.000075
+		insert gskch
+	gskbar_gskch=0.0004
+		insert cagk
+	gkbar_cagk=0.0006
+	gl_ichan2 = 0.00004
+	cm=1}
+		
+		forsec pdend {insert ichan2
+	gnatbar_ichan2=0.013
+	gkfbar_ichan2=0.004
+	gksbar_ichan2=0.006
+		insert nca  // HAV-N- Ca channel
+	gncabar_nca=0.001  // check to modify- original 0.004
+		insert lca 
+	glcabar_lca=0.0075
+		insert cat
+	gcatbar_cat=0.00025
+		insert gskch
+	gskbar_gskch=0.0002
+		insert cagk
+	gkbar_cagk=0.001
+	gl_ichan2 = 0.000063
+	cm=1.6
+	}
+		
+	 	forsec mdend {insert ichan2
+	gnatbar_ichan2=0.008
+	gkfbar_ichan2=0.001
+	gksbar_ichan2=0.006
+		insert nca  // HAV-N- Ca channel
+	gncabar_nca=0.001  // check to modify- original 0.004
+		insert lca 
+	glcabar_lca=0.0005
+		insert cat
+	gcatbar_cat=0.0005
+		insert gskch
+	gskbar_gskch=0.0
+		insert cagk
+	gkbar_cagk=0.0024
+	gl_ichan2 = 0.000063
+
+	cm=1.6}
+
+		forsec ddend {insert ichan2
+	gnatbar_ichan2=0.0
+	gkfbar_ichan2=0.001
+	gksbar_ichan2=0.008
+		insert nca  // HAV-N- Ca channel
+	gncabar_nca=0.001  // check to modify- original 0.004
+		insert lca 
+	glcabar_lca=0.0
+		insert cat
+	gcatbar_cat=0.001
+		insert gskch
+	gskbar_gskch=0.0
+		insert cagk
+	gkbar_cagk=0.0024
+	gl_ichan2 = 0.000063
+	cm=1.6}
+		
+	
+	connect gcdend1[0](0), soma(1)
+	connect gcdend2[0](0), soma(1)
+	for i=1,3 {
+	connect gcdend1[i](0), gcdend1[i-1](1)
+	}
+	for i=1,3 {
+	connect gcdend2[i](0), gcdend2[i-1](1)
+	}
+
+
+	forsec all {enat = 45 ekf = -90 eks = -90  ek=-90  elca=130 etca=130	 esk=-90
+		 el_ichan2 =-70
+
+		cao_ccanl=2 }  // make catau slower70e-3 	cao=2 cai=50.e-6 
+
+	}
+	proc connect_pre() {  // $o1 target point process, $o2 returned NetCon
+	soma $o2 = new NetCon (&v(1), $o1)
+	}
+
+	objref syn
+	proc synapse() {
+	gcdend1[3] syn = new Exp2Syn(0.5) // PP syn based on Greg and Staley
+	syn.tau1 = 1.5	syn.tau2 = 5.5	syn.e = 0
+	pre_list.append(syn)
+
+	gcdend2[3] syn = new Exp2Syn(0.5) // PPsyn based on Greg and Staley
+	syn.tau1 = 1.5	syn.tau2 = 5.5	syn.e = 0
+	pre_list.append(syn)
+
+	gcdend1[1] syn = new Exp2Syn(0.5) // MC syn *** Estimated
+	syn.tau1 = 1.5	syn.tau2 = 5.5	syn.e = 0
+	pre_list.append(syn)
+
+	gcdend2[1] syn = new Exp2Syn(0.5) // MC syn   *** Estimated
+	syn.tau1 = 1.5	syn.tau2 = 5.5	syn.e = 0
+	pre_list.append(syn)
+
+	gcdend1[3] syn = new Exp2Syn(0.5) // HIPP  syn based on Harney and Jones corrected for temp
+	syn.tau1 = 0.5	syn.tau2 = 6	syn.e = -70
+	pre_list.append(syn)
+
+	gcdend2[3] syn = new Exp2Syn(0.5) // HIPP syn based on Harney and Jones corrected for temp
+	syn.tau1 = 0.5	syn.tau2 = 6	syn.e = -70
+	pre_list.append(syn)
+
+	soma syn = new Exp2Syn(0.5) // BC  syn syn based on Bartos
+	syn.tau1 = 0.26	syn.tau2 = 5.5	syn.e = -70
+	pre_list.append(syn)
+
+	gcdend1[1] syn = new Exp2Syn(0.5) // Sprouted Syn*************
+	syn.tau1 = 1.5	syn.tau2 = 5.5	syn.e = 0
+	pre_list.append(syn)
+
+	gcdend2[1] syn = new Exp2Syn(0.5) // Sprouted Syn*********
+	syn.tau1 = 1.5	syn.tau2 = 5.5	syn.e = 0
+	pre_list.append(syn)
+
+
+// Total of 7 synapses per GC 0,1 PP; 	2,3 MC;	4,5 HIPP and 	6 BC	7,8 Sprout
+	}
+	func is_art() { return 0 }
+
+	endtemplate GranuleCell
+// ************************************************************************************************************
+
+
+objref Bcell[nbcell]
+
+	begintemplate BasketCell
+ndend1=4
+ndend2=4
+ndend3=4
+ndend4=4
+
+public  pre_list, connect_pre, subsets, is_art, is_connected
+public vbc2gc, vmc2gc, vhc2gc, vgc2bc, vbc2bc, vmc2bc, vhc2bc, vgc2mc, vbc2mc, vmc2mc, vhc2mc, vgc2hc, vmc2hc
+public soma, bcdend1, bcdend2, bcdend3, bcdend4
+public all, adend, bdend, cdend, ddend
+create soma, bcdend1[ndend1], bcdend2[ndend2], bcdend3[ndend3], bcdend4[ndend4]
+objref syn, pre_list
+nst=10
+	objectvar stim[nst]
+double stimdur[nst], stimdel[nst], stimamp[nst]
+public stim, stimdur, stimamp, stimdel
+
+
+objref syn
+proc init() {
+	pre_list = new List()
+	subsets()
+	temp()
+	synapse()
+}
+
+objref all, adend, bdend, cdend, ddend
+
+proc subsets() { local i
+	objref all, adend, bdend, cdend, ddend
+	all = new SectionList()
+		soma all.append()
+		for i=0, 3 bcdend1 [i] all.append()
+		for i=0, 3 bcdend2 [i] all.append()
+		for i=0, 3 bcdend3 [i] all.append()
+		for i=0, 3 bcdend4 [i] all.append()
+
+	adend  = new SectionList()
+		bcdend1 [0] adend.append()
+		bcdend2 [0] adend.append()
+		bcdend3 [0] adend.append()
+		bcdend4 [0] adend.append()
+
+	bdend  = new SectionList()
+		bcdend1 [1] bdend.append()
+		bcdend2 [1] bdend.append()
+		bcdend3 [1] bdend.append()
+		bcdend4 [1] bdend.append()
+
+	cdend  = new SectionList()
+		bcdend1 [2] cdend.append()
+		bcdend2 [2] cdend.append()
+		bcdend3 [2] cdend.append()
+		bcdend4 [2] cdend.append()
+
+	ddend  = new SectionList()
+		bcdend1 [3] ddend.append()
+		bcdend2 [3] ddend.append()
+		bcdend3 [3] ddend.append()
+		bcdend4 [3] ddend.append()
+}
+
+proc temp() {
+
+	soma {nseg=1 L=20 diam=15} // changed L & diam
+		
+	bcdend1 [0] {nseg=1 L=75 diam=4}	// bcdend 1 and 2 are apical
+	bcdend1 [1] {nseg=1 L=75 diam=3}
+	bcdend1 [2] {nseg=1 L=75 diam=2}
+ 	bcdend1 [3] {nseg=1 L=75 diam=1}
+
+	bcdend2 [0] {nseg=1 L=75 diam=4}
+	bcdend2 [1] {nseg=1 L=75 diam=3}
+	bcdend2 [2] {nseg=1 L=75 diam=2}
+	bcdend2 [3] {nseg=1 L=75 diam=1}
+ 		 
+	bcdend3 [0] {nseg=1 L=50 diam=4} 	// bcdend 3 and 4 are basal
+	bcdend3 [1] {nseg=1 L=50 diam=3}
+	bcdend3 [2] {nseg=1 L=50 diam=2}
+	bcdend3 [3] {nseg=1 L=50 diam=1} 
+	
+	bcdend4 [0] {nseg=1 L=50 diam=4}
+	bcdend4 [1] {nseg=1 L=50 diam=3}
+	bcdend4 [2] {nseg=1 L=50 diam=2}
+	bcdend4 [3] {nseg=1 L=50 diam=1} 	
+
+    
+	forsec all {
+		insert ccanl
+	catau_ccanl = 10
+	caiinf_ccanl = 5.e-6
+		insert borgka
+	gkabar_borgka=0.00015
+		insert nca  // HAV-N- Ca channel
+	gncabar_nca=0.0008   
+		insert lca 
+	glcabar_lca=0.005
+		insert gskch
+	gskbar_gskch=0.000002
+		insert cagk
+	gkbar_cagk=0.0002
+	}
+
+	soma {insert ichan2  //ildikos ichan
+	gnatbar_ichan2=0.12  
+	gkfbar_ichan2=0.013  
+	gl_ichan2 = 0.00018
+	cm=1.4
+	} 
+
+	forsec adend {insert ichan2
+	gnatbar_ichan2=0.12  
+	gkfbar_ichan2=0.013
+	gl_ichan2 = 0.00018
+	cm=1.4
+	}		
+	forsec	bdend {insert ichan2
+	gnatbar_ichan2=0.0
+	gkfbar_ichan2=0.00
+	gl_ichan2 = 0.00018
+	cm=1.4}
+		
+	forsec 	cdend {insert ichan2
+	gnatbar_ichan2=0.0
+	gkfbar_ichan2=0.00
+	gl_ichan2 = 0.00018
+	cm=1.4}
+
+	forsec	ddend {insert ichan2
+	gnatbar_ichan2=0.0
+	gkfbar_ichan2=0.00
+	gl_ichan2 = 0.00018
+	cm=1.4}
+
+
+	connect bcdend1[0](0), soma(1)
+	connect bcdend2[0](0), soma(1)
+	connect bcdend3[0](0), soma(0)
+	connect bcdend4[0](0), soma(0)
+	for i=1,3 {
+	connect bcdend1[i](0), bcdend1[i-1](1)
+	}
+	for i=1,3 {
+	connect bcdend2[i](0), bcdend2[i-1](1)
+	}
+	for i=1,3 {
+	connect bcdend3[i](0), bcdend3[i-1](1)
+	}
+	for i=1,3 {
+	connect bcdend4[i](0), bcdend4[i-1](1)
+	}
+
+
+	forsec all {Ra=100}
+	forsec all {enat = 55 ekf = -90  ek=-90  elca=130	esk=-90
+		 el_ichan2 =-60.06
+
+		cao_ccanl=2 }  // make catau slower70e-3 	cao=2 cai=50.e-6 
+	}
+
+	objref syn  
+	proc synapse() {
+
+	bcdend1 [3] syn = new Exp2Syn(0.5)	//PP(AMPA) syn to apical dist dend Dingledine '95
+	syn.tau1 = 2	syn.tau2 = 6.3	syn.e = 0 
+	pre_list.append(syn)
+
+	bcdend2 [3] syn = new Exp2Syn(0.5)	//PP(AMPA) syn to apical dist dend Dingledine '95
+	syn.tau1 = 2	syn.tau2 = 6.3	syn.e = 0  
+	pre_list.append(syn)
+
+	bcdend1 [0] syn = new Exp2Syn(0.5)	//GC(AMPA) syn to prox dend Geiger '97
+	syn.tau1 = .3	syn.tau2 = .6	syn.e = 0
+	pre_list.append(syn)
+
+	bcdend2 [0] syn = new Exp2Syn(0.5)	//GC(AMPA) syn to prox dend Geiger '97
+	syn.tau1 = .3	syn.tau2 = .6	syn.e = 0
+	pre_list.append(syn)
+
+	bcdend3 [0] syn = new Exp2Syn(0.5)	//GC(AMPA) syn to prox dend Geiger '97
+	syn.tau1 = .3	syn.tau2 = .6	syn.e = 0
+	pre_list.append(syn)
+
+	bcdend4 [0] syn = new Exp2Syn(0.5)	//GC(AMPA) syn to prox dend Geiger '97
+	syn.tau1 = .3	syn.tau2 = .6	syn.e = 0
+	pre_list.append(syn)
+
+	bcdend1 [1] syn = new Exp2Syn(0.5)	//MC(AMPA) syn to apical IML dend
+	syn.tau1 = 0.9	syn.tau2 = 3.6	syn.e = 0 // *** Estimated based on CA3>BC min stim Dingledine '95
+	pre_list.append(syn)
+
+	bcdend2 [1] syn = new Exp2Syn(0.5)	//MC(AMPA) syn to apical IML dend
+	syn.tau1 = 0.9	syn.tau2 = 3.6	syn.e = 0 // *** Estimated based on CA3>BC min stim Dingledine '95
+	pre_list.append(syn)
+
+	bcdend1 [1] syn = new Exp2Syn(0.5)	//BC(GABA) syn to apical IML dend Bartos
+	syn.tau1 = 0.16		syn.tau2 = 1.8	syn.e = -70
+	pre_list.append(syn)
+
+	bcdend2 [1] syn = new Exp2Syn(0.5)	//BC(GABA) syn to apical IML dend Bartos
+	syn.tau1 = 0.16		syn.tau2 = 1.8	syn.e = -70
+	pre_list.append(syn)
+
+	bcdend1 [3] syn = new Exp2Syn(0.5)	//HIPP(GABA) syn to apical distal dend 
+	syn.tau1 = 0.4	syn.tau2 = 5.8	syn.e = -70 // *** Estimated as HIPP>GC
+	pre_list.append(syn)
+
+	bcdend2 [3] syn = new Exp2Syn(0.5)	//HIPP(GABA) syn to apical distal dend 
+	syn.tau1 = 0.4	syn.tau2 = 5.8	syn.e = -70 // *** Estimated as HIPP>GC
+	pre_list.append(syn)
+
+// Total of 12 synapses 	0,1 PP; 	2-5 GC; 	6,7 MC; 	8,9 BC; 	10,11 HIPP 
+	}
+
+	proc connect_pre() {  // $o1 target point process, $o2 returned NetCon
+	soma $o2 = new NetCon (&v(1), $o1)
+
+	}
+
+	func is_art()  { return 0 }
+
+	endtemplate BasketCell
+//***********************************************************************************************************
+objref Mcell[nmcell]
+
+	begintemplate MossyCell
+ndend1=4
+ndend2=4
+ndend3=4
+ndend4=4
+
+public  pre_list, connect_pre, subsets, is_art, is_connected
+public vbc2gc, vmc2gc, vhc2gc, vgc2bc, vbc2bc, vmc2bc, vhc2bc, vgc2mc, vbc2mc, vmc2mc, vhc2mc, vgc2hc, vmc2hc
+public soma, mcdend1, mcdend2, mcdend3, mcdend4
+create soma, mcdend1[ndend1], mcdend2[ndend2], mcdend3[ndend3], mcdend4[ndend4]
+public all, adend, bdend, cdend, ddend
+objref syn, pre_list, fl
+nst=10
+	objectvar stim[nst]
+double stimdur[nst], stimdel[nst], stimamp[nst]
+public stim, stimdur, stimamp, stimdel
+
+
+objref syn
+proc init() {
+	pre_list = new List()
+	subsets()
+	temp()
+	synapse()
+}
+
+objref all, pdend, ddend
+
+proc subsets() { local i
+	objref all, pdend, ddend
+	all = new SectionList()
+		soma all.append()
+		for i=0, 3 mcdend1 [i] all.append()
+		for i=0, 3 mcdend2 [i] all.append()
+		for i=0, 3 mcdend3 [i] all.append()
+		for i=0, 3 mcdend4 [i] all.append()
+
+	pdend  = new SectionList()
+		mcdend1 [0] pdend.append()
+		mcdend2 [0] pdend.append()
+		mcdend3 [0] pdend.append()
+		mcdend4 [0] pdend.append()
+
+	ddend  = new SectionList()
+		for i=1, 3 mcdend1 [i] ddend.append()
+		for i=1, 3 mcdend2 [i] ddend.append()
+		for i=1, 3 mcdend3 [i] ddend.append()
+		for i=1, 3 mcdend4 [i] ddend.append()
+	
+}
+
+
+proc temp() {
+
+	soma {nseg=1 L=20 diam=20} // changed L & diam
+		
+	mcdend1 [0] {nseg=1 L=50 diam=5.78}
+	mcdend1 [1] {nseg=1 L=50 diam=4}
+	mcdend1 [2] {nseg=1 L=50 diam=2.5}
+ 	mcdend1 [3] {nseg=1 L=50 diam=1}
+
+	mcdend2 [0] {nseg=1 L=50 diam=5.78}
+	mcdend2 [1] {nseg=1 L=50 diam=4}
+	mcdend2 [2] {nseg=1 L=50 diam=2.5}
+	mcdend2 [3] {nseg=1 L=50 diam=1}
+ 		 
+	mcdend3 [0] {nseg=1 L=50 diam=5.78}
+	mcdend3 [1] {nseg=1 L=50 diam=4}
+	mcdend3 [2] {nseg=1 L=50 diam=2.5}
+	mcdend3 [3] {nseg=1 L=50 diam=1} 
+	
+	mcdend4 [0] {nseg=1 L=50 diam=5.78}
+	mcdend4 [1] {nseg=1 L=50 diam=4}
+	mcdend4 [2] {nseg=1 L=50 diam=2.5}
+	mcdend4 [3] {nseg=1 L=50 diam=1} 	
+
+    
+	forsec all {
+		insert ccanl
+	catau_ccanl = 10
+	caiinf_ccanl = 5.e-6
+		insert borgka
+	gkabar_borgka=0.00001
+		insert nca  // HAV-N- Ca channel
+	gncabar_nca=0.00008  // check to modify- original 0.004
+		insert lca 
+	glcabar_lca=0.0006
+		insert gskch
+	gskbar_gskch=0.016
+		insert cagk
+	gkbar_cagk=0.0165
+		insert hyperde3
+	ghyfbar_hyperde3=0.000005
+	ghysbar_hyperde3=0.000005
+	}
+
+	soma {insert ichan2  //ildikos ichan
+	gnatbar_ichan2=0.12  //original 0.030 to .055 
+	gkfbar_ichan2=0.0005  //original 0.015
+	gl_ichan2 = 0.000011
+	cm=0.6} 
+
+	forsec pdend {insert ichan2
+	gnatbar_ichan2=0.12  //original 0.015
+	gkfbar_ichan2=0.0005
+	gl_ichan2 = 0.000044
+	cm=2.4}
+		
+	forsec ddend {insert ichan2
+	gnatbar_ichan2=0.0
+	gkfbar_ichan2=0.00
+	gl_ichan2 = 0.000044
+	cm=2.4}
+		
+	connect mcdend1[0](0), soma(1)
+	connect mcdend2[0](0), soma(1)
+	connect mcdend3[0](0), soma(0)
+	connect mcdend4[0](0), soma(0)
+	for i=1,3 {connect mcdend1[i](0), mcdend1[i-1](1)}
+	for i=1,3 {connect mcdend2[i](0), mcdend2[i-1](1)}
+	for i=1,3 {connect mcdend3[i](0), mcdend3[i-1](1)}
+	for i=1,3 {connect mcdend4[i](0), mcdend4[i-1](1)}
+
+	forsec all {Ra=100}
+	forsec all {enat = 55 ekf = -90  ek=-90  esk=-90 elca=130
+		ehyf=-40 ehys=-40
+		 el_ichan2 =-59
+
+		cao_ccanl=2 }  // make catau slower70e-3 	cao=2 cai=50.e-6 
+
+soma stim = new IClamp(0.5)
+stim.del = 0.01
+stim.dur = 4000
+stim.amp = 0.5
+
+objref fl
+soma fl = new Gfluct2(0.5)
+
+//fl.g_e0 = 0.0242
+//fl.g_i0 = 0.1146
+//fl.std_e = 0.0375
+//fl.std_i = 0.01875
+
+}
+	objref syn  
+	proc synapse() {
+
+	mcdend1 [3] syn = new Exp2Syn(0.7)	//PP(AMPA) syn to dist dend similar to PP to GC
+	syn.tau1 = 1.5	syn.tau2 = 5.5	syn.e = 0
+	pre_list.append(syn)
+
+	mcdend2 [3] syn = new Exp2Syn(0.7)	//PP(AMPA) syn to dist dend similar to PP to GC
+	syn.tau1 = 1.5	syn.tau2 = 5.5	syn.e = 0
+	pre_list.append(syn)
+
+	mcdend3 [3] syn = new Exp2Syn(0.7)	//PP(AMPA) syn to dist dend similar to PP to GC
+	syn.tau1 = 1.5	syn.tau2 = 5.5	syn.e = 0
+	pre_list.append(syn)
+
+	mcdend4 [3] syn = new Exp2Syn(0.7)	//PP(AMPA) syn to dist dend similar to PP to GC
+	syn.tau1 = 1.5	syn.tau2 = 5.5	syn.e = 0
+	pre_list.append(syn)
+
+	mcdend1 [0] syn = new Exp2Syn(0.5)	//GC(AMPA) syn to prox dend similar to GC>CA3 Jonas '93
+	syn.tau1 = 0.5	syn.tau2 = 6.2	syn.e = 0
+	pre_list.append(syn)
+
+	mcdend2 [0] syn = new Exp2Syn(0.5)	//GC(AMPA) syn to prox dend similar to GC>CA3 Jonas '93
+	syn.tau1 = 0.5	syn.tau2 = 6.2	syn.e = 0
+	pre_list.append(syn)
+
+	mcdend3 [0] syn = new Exp2Syn(0.5)	//GC(AMPA) syn to prox dend similar to GC>CA3 Jonas '93
+	syn.tau1 = 0.5	syn.tau2 = 6.2	syn.e = 0
+	pre_list.append(syn)
+
+	mcdend4 [0] syn = new Exp2Syn(0.5)	//GC(AMPA) syn to prox dend similar to GC>CA3 Jonas '93
+	syn.tau1 = 0.5	syn.tau2 = 6.2	syn.e = 0
+	pre_list.append(syn)
+
+	mcdend1 [0] syn = new Exp2Syn(0.5)	//MC(AMPA) syn to prox dend similar to CA#>CA3 Aaron
+	syn.tau1 = 0.45 	syn.tau2 =2.2	syn.e = 0
+	pre_list.append(syn)
+
+	mcdend2 [0] syn = new Exp2Syn(0.5)	//MC(AMPA) syn to prox dend similar to CA#>CA3 Aaron
+	syn.tau1 = 0.45	syn.tau2 = 2.2		syn.e = 0
+	pre_list.append(syn)
+
+	mcdend3 [0] syn = new Exp2Syn(0.5)	//MC(AMPA) syn to prox dend similar to CA#>CA3 Aaron
+	syn.tau1 = 0.45	syn.tau2 = 2.2	syn.e = 0
+	pre_list.append(syn)
+
+	mcdend4 [0] syn = new Exp2Syn(0.5)	//MC(AMPA) syn to prox dend similar to CA#>CA3 Aaron
+	syn.tau1 = 0.45	syn.tau2 = 2.2	syn.e = 0
+	pre_list.append(syn)
+
+	soma syn = new Exp2Syn(0.5)	//BC(GABA) syn to prox dend based on BC>CA3 Bartos PNAS (mice)
+	syn.tau1 = 0.3	syn.tau2 = 3.3	syn.e = -70
+	pre_list.append(syn)
+
+	mcdend1 [2] syn = new Exp2Syn(0.5)	//HIPP(GABA) syn to prox dend based on Hilar>GC Harney&Jones
+	syn.tau1 = .5	syn.tau2 = 6		syn.e = -70
+	pre_list.append(syn)
+
+	mcdend2 [2] syn = new Exp2Syn(0.5)	//HIPP(GABA) syn to prox dend based on Hilar>GC Harney&Jones
+	syn.tau1 = .5	syn.tau2 = 6		syn.e = -70
+	pre_list.append(syn)
+
+	mcdend3 [2] syn = new Exp2Syn(0.5)	//HIPP(GABA) syn to prox dend based on Hilar>GC Harney&Jones
+	syn.tau1 = .5	syn.tau2 = 6		syn.e = -70
+	pre_list.append(syn)
+
+	mcdend4 [2] syn = new Exp2Syn(0.5)	//HIPP(GABA) syn to prox dend based on Hilar>GC Harney&Jones
+	syn.tau1 = .5	syn.tau2 = 6	syn.e =-70
+	pre_list.append(syn)
+
+	
+
+// Total of 17 synapses 	0-3 PP; 	4-7 GC; 	8-11 MC; 	12 BC; 	13-16 HIPP 
+	}
+
+	proc connect_pre() {  // $o1 target point process, $o2 returned NetCon
+	soma $o2 = new NetCon (&v(1), $o1)
+	}
+
+	func is_art()  { return 0 }
+
+	endtemplate MossyCell
+
+//**************************************************************************************************
+objref Hcell[nhcell]
+
+	begintemplate HIPPCell
+
+ndend1=3
+ndend2=3
+ndend3=3
+ndend4=3
+public  pre_list, connect_pre, subsets, is_art, is_connected
+public vbc2gc, vmc2gc, vhc2gc, vgc2bc, vbc2bc, vmc2bc, vhc2bc, vgc2mc, vbc2mc, vmc2mc, vhc2mc, vgc2hc, vmc2hc
+public soma, hcdend1, hcdend2, hcdend3, hcdend4
+create soma, hcdend1[ndend1], hcdend2[ndend2], hcdend3[ndend3], hcdend4[ndend4]
+public all, pdend, ddend
+objref syn, pre_list
+nst=10
+	objectvar stim[nst]
+double stimdur[nst], stimdel[nst], stimamp[nst]
+public stim, stimdur, stimamp, stimdel
+
+
+objref syn
+proc init() {
+	pre_list = new List()
+	subsets()
+	temp()
+	synapse()
+}
+
+objref all, pdend, ddend
+
+proc subsets() { local i
+	objref all, pdend, ddend
+	all = new SectionList()
+		soma all.append()
+		for i=0, 2 hcdend1 [i] all.append()
+		for i=0, 2 hcdend2 [i] all.append()
+		for i=0, 2 hcdend3 [i] all.append()
+		for i=0, 2 hcdend4 [i] all.append()
+
+	pdend  = new SectionList()
+		hcdend1 [0] pdend.append()
+		hcdend2 [0] pdend.append()
+		hcdend3 [0] pdend.append()
+		hcdend4 [0] pdend.append()
+
+	ddend  = new SectionList()
+		for i=1, 2 hcdend1 [i] ddend.append()
+		for i=1, 2 hcdend2 [i] ddend.append()
+		for i=1, 2 hcdend3 [i] ddend.append()
+		for i=1, 2 hcdend4 [i] ddend.append()
+}
+
+proc temp() {
+
+	soma {nseg=1 L=20 diam=10} // changed L & diam
+		
+	hcdend1 [0] {nseg=1 L=75 diam=3}
+	hcdend1 [1] {nseg=1 L=75 diam=2}
+	hcdend1 [2] {nseg=1 L=75 diam=1}
+
+	hcdend2 [0] {nseg=1 L=75 diam=3}
+	hcdend2 [1] {nseg=1 L=75 diam=2}
+	hcdend2 [2] {nseg=1 L=75 diam=1}
+ 		 
+	hcdend3 [0] {nseg=1 L=50 diam=3}
+	hcdend3 [1] {nseg=1 L=50 diam=2}
+	hcdend3 [2] {nseg=1 L=50 diam=1}
+	
+	hcdend4 [0] {nseg=1 L=50 diam=3}
+	hcdend4 [1] {nseg=1 L=50 diam=2}
+	hcdend4 [2] {nseg=1 L=50 diam=1}	
+
+    
+	forsec all {
+		insert ccanl
+	catau_ccanl = 10
+	caiinf_ccanl = 5.e-6
+		insert borgka
+	gkabar_borgka=0.0008
+		insert nca  // HAV-N- Ca channel
+	gncabar_nca=0.0  
+		insert lca
+	glcabar_lca=0.0015
+		insert gskch
+	gskbar_gskch=0.003
+		insert cagk
+	gkbar_cagk=0.003
+		insert hyperde3
+	ghyfbar_hyperde3=0.000015
+	ghysbar_hyperde3=0.000015
+	}
+
+	soma {insert ichan2  //ildikos ichan
+	gnatbar_ichan2=0.2  
+	gkfbar_ichan2=0.006  
+	gl_ichan2 = 0.000036
+	cm=1.1} 
+
+	forsec pdend {insert ichan2
+	gnatbar_ichan2=0.2  
+	gkfbar_ichan2=0.006
+	gl_ichan2 = 0.000036
+	cm=1.1}
+		
+	forsec ddend {insert ichan2
+	gnatbar_ichan2=0.0
+	gkfbar_ichan2=0.00
+	gl_ichan2 = 0.000036
+	cm=1.1}
+
+	connect hcdend1[0](0), soma(1)
+	connect hcdend2[0](0), soma(1)
+	connect hcdend3[0](0), soma(0)
+	connect hcdend4[0](0), soma(0)
+	for i=1,2 {connect hcdend1[i](0), hcdend1[i-1](1)}
+	for i=1,2 {connect hcdend2[i](0), hcdend2[i-1](1)}
+	for i=1,2 {connect hcdend3[i](0), hcdend3[i-1](1)}
+	for i=1,2 {connect hcdend4[i](0), hcdend4[i-1](1)}
+
+	forsec all {Ra=100}
+	forsec all {enat = 55 ekf = -90  ek=-90  esk=-90 elca=130
+		 el_ichan2 =-70.45	ehyf=-40 ehys=-40
+		cao_ccanl=2 }  // make catau slower70e-3 	cao=2 cai=50.e-6 
+
+		}
+
+	objref syn  
+	proc synapse() {
+
+	hcdend1 [0] syn = new Exp2Syn(0.5)	//GC(AMPA) syn to prox dend similar to GC>BC
+	syn.tau1 = .3	syn.tau2 = .6	syn.e = 0
+	pre_list.append(syn)
+
+	hcdend2 [0] syn = new Exp2Syn(0.5)	//GC(AMPA) syn to prox dend similar to GC>BC
+	syn.tau1 = .3	syn.tau2 = .6	syn.e = 0
+	pre_list.append(syn)
+
+	hcdend3 [0] syn = new Exp2Syn(0.5)	//GC(AMPA) syn to prox dend similar to GC>BC
+	syn.tau1 = .3 syn.tau2 = .6	syn.e = 0
+	pre_list.append(syn)
+
+	hcdend4 [0] syn = new Exp2Syn(0.5)	//GC(AMPA) syn to prox dend similar to GC>BC
+	syn.tau1 = .3	syn.tau2 = .6	syn.e = 0
+	pre_list.append(syn)
+
+	hcdend1 [1] syn = new Exp2Syn(0.5)	//MC(AMPA) syn to mid dend similar to CA3>int Aaron
+	syn.tau1 = .9	syn.tau2 = 3.6	syn.e = 0 //*** Assumed data at physio temp
+	pre_list.append(syn)
+
+	hcdend2 [1] syn = new Exp2Syn(0.5)	//MC(AMPA) syn to mid dend similar to CA3>int Aaron
+	syn.tau1 = 0.9	syn.tau2 = 3.6	syn.e = 0 //*** Assumed data at physio temp
+	pre_list.append(syn)
+
+	hcdend3 [1] syn = new Exp2Syn(0.5)	//MC(AMPA) syn to mid dend similar to CA3>int Aaron
+	syn.tau1 = 0.9	syn.tau2 = 3.6	syn.e = 0  //*** Assumed data at physio temp
+	pre_list.append(syn)
+
+	hcdend4 [1] syn = new Exp2Syn(0.5)	//MC(AMPA) syn to mid dend similar to CA3>int Aaron
+	syn.tau1 = 0.9		syn.tau2 = 3.6 	syn.e = 0  //*** Assumed data at physio temp
+	pre_list.append(syn)
+
+// Total of 12 synapses 	0-3 PP; 	4-7 GC; 	8-11 MC	
+	}
+
+	proc connect_pre() {  // $o1 target point process, $o2 returned NetCon
+	soma $o2 = new NetCon (&v(1), $o1)
+	}
+
+	func is_art()  { return 0 }
+
+
+	endtemplate HIPPCell
+//************************************************************************************************************
+
+
+objref PPSt[npp]
+
+	begintemplate PPstim
+
+	public pp, connect_pre, is_art, acell
+	create acell
+	objref pp
+
+	proc init() {
+		actemp() 		
+	}
+		proc actemp() {
+				acell pp = new NetStim(.5)
+				pp.interval = 100
+				pp.number = 1
+				pp.start = 5
+				}
+
+	func is_art() {return 1}
+	proc connect_pre() {acell $o2 = new NetCon(pp, $o1)}
+
+	endtemplate PPstim
+//###############################################################################################################
+
+
+//NETWORK CONSTANTS AND VALUES
+	dentateBins = 100    /* equivalent subdivisions of the 6mm dentate */
+	dentateLength = 6000 /* in micrometers */
+	dentateBinSize = int(dentateLength/dentateBins)  /* in micrometers */
+	numCellTypes = 4
+
+// NETWORK SPECIFICATION INTERFACE
+objref gcellPos, bcellPos, mcellPos, hcellPos, numElements_vec, tempPosition_vec, totalPosition_vec
+gcellPos = new Vector(ngcell)
+bcellPos = new Vector(nbcell)
+mcellPos = new Vector(nmcell)
+hcellPos = new Vector(nhcell)
+totalPosition_vec = new Vector ()
+numElements_vec = new Vector()
+tempPosition_vec = new Vector()
+
+	for i=0, ngcell-1 {
+	    Gcell[i] = new GranuleCell(i)
+	    if (i%1000 == 0) print "Gcell: ",i
+	}
+
+	for i=0, nbcell-1 {
+	    Bcell[i] = new BasketCell(i)
+	    if (i%20 == 0) print "Bcell: ",i
+	}
+	for i=0, nmcell-1 {
+	    Mcell[i] = new MossyCell(i)
+	    if (i%50 == 0) print "Mcell: ",i
+	}
+	for i=0, nhcell-1 {
+	    Hcell[i] = new HIPPCell(i)
+	    if (i%20 == 0) print "Hcell: ",i
+	}
+	for i=0, npp-1 {PPSt[i] = new PPstim(i)}
+
+
+
+objref nclist[dentateBins], netcon, cells
+{  cells = new List()
+for i = 0, dentateBins - 1 {nclist[i] = new List()}
+}
+ func cell_append() {cells.append($o1) 
+	return cells.count -1}
+
+counterz = 0
+func nc_append() {
+
+	if ($3 >= 0 )	{
+		cells.object($1).connect_pre(cells.object($2).pre_list.object($3),netcon)
+		netcon.weight = $4	netcon.delay = $5	netcon.threshold = $6
+		counterz += 1
+	} 
+	if ($1 <= totalPosition_vec.size - 1) {
+	   whichBin = (totalPosition_vec.x[$1] + 30)/60 - 1
+	} else {whichBin = dentateBins-1}
+
+	nclist[whichBin].append(netcon)
+	return 1 /* nclist.count-1 */
+		}
+
+//	NETWORK INITIATION
+	for i = 0, ngcell-1 {cell_append(Gcell[i])} // cells 0-4 GCs
+	for i = 0, nmcell-1 {cell_append(Mcell[i])} // cells 5-6 BC
+	for i = 0, nbcell-1 {cell_append(Bcell[i])} // cell 7 MC
+	for i = 0, nhcell-1 {cell_append(Hcell[i])} // cell 8 HC
+	for i = 0, npp-1 {cell_append(PPSt[i])}	// cell 9 PP
+
+//**************************************************************************
+// Procedure that assigns x coordinates to cells.  It takes
+// one argument, a number indicating the type of cell to be 
+// assigned positions.
+// 1 = granule; 2 = mossy; 3 = basket; 4 = HIPP; 0 = ALL
+
+proc assignPos() {local celltype, numcell, numelementsperbin, leftovers, i, start, end, numstep
+
+celltype = $1
+
+// Assign which cells will receive coordinates.
+
+if (celltype == 1) {numcell = ngcell}
+if (celltype == 2) {numcell = nmcell}
+if (celltype == 3) {numcell = nbcell}
+if (celltype == 4) {numcell = nhcell}
+if (celltype == 0) {
+   for i = 1, numCellTypes {
+       assignPos(i)
+   }
+   break
+}
+
+numelementsperbin = int (numcell/dentateBins)
+numElements_vec.resize (dentateBins)
+numElements_vec.fill (numelementsperbin, 0, dentateBins-1)
+leftovers = numcell % dentateBins
+tempPosition_vec.resize(numcell)
+
+// Leftovers puts non-evenly divisible elements evenly into bins.
+
+i=0
+if (leftovers != 0) {numstep = int (dentateBins/leftovers)}
+while (leftovers != 0) {
+      numElements_vec.x[i] += 1
+      i += numstep
+      leftovers -= 1
+}
+
+
+for i = 0, dentateBins - 1 {
+    if (numElements_vec.x[i] != 0) {
+       position = int(i*dentateBinSize + 0.5*dentateBinSize)
+       if (i == 0) {tempPosition_vec.fill(position, 0, numElements_vec.x[i]-1)
+       } else {
+	      start = numElements_vec.sum (0, i-1)
+	      if (start >= tempPosition_vec.size) {start = tempPosition_vec.size-1}
+	      if ((numElements_vec.sum (0,i) - 1) >= tempPosition_vec.size) {
+		  end = tempPosition_vec.size-1
+	      } else {end = numElements_vec.sum (0, i)-1}
+	      tempPosition_vec.fill(position, start, end)
+         } 
+    }
+}
+
+totalPosition_vec.append(tempPosition_vec)
+
+if (celltype == 1) {gcellPos = tempPosition_vec.c}
+if (celltype == 2) {mcellPos = tempPosition_vec.c}
+if (celltype == 3) {bcellPos = tempPosition_vec.c}
+if (celltype == 4) {hcellPos = tempPosition_vec.c}
+
+}
+//****************************************************************************
+assignPos(0)
+print "I have successfully created all of the cells."
+
+// DATA FILES AND OBJECTS
+
+// numfiles needs to be greater than or equal to the expected number of files read in from getData
+
+numfiles = 4
+objref f1[numfiles], fileData_vec[numfiles], f2, tempFile 
+objref pgc_vec, pmc_vec, pbc_vec, phc_vec
+objref gcdist_vec, mcdist_vec, bcdist_vec, hcdist_vec
+strdef synapseFilename
+
+
+pgc_vec = new Vector ()
+pmc_vec = new Vector ()
+pbc_vec = new Vector ()
+phc_vec = new Vector ()
+gcdist_vec = new Vector ()
+mcdist_vec = new Vector ()
+bcdist_vec = new Vector ()
+hcdist_vec = new Vector ()
+
+
+for i = 0, numfiles-1 {
+    f1[i] = new File()
+    fileData_vec[i] = new Vector()	
+}
+
+//************************************************************************
+
+// This procedure reads in data from files to vectors.
+// It takes any number of arguments.  The first must be an integer value
+// corresponding to the number of files you would like to read in.
+// The next arguments are the filenames, in quotation marks.
+// e.g getData(4, "file1", "file2", "file3", "file4")
+
+// Each vector is stored as fileData_vec[<filenumber>].
+
+// Files should be a single column of values, with the first value indicating
+// how many data entries there will be following it.  Be sure the last line
+// of the file ends with a value followed by a carriage return.
+
+proc getData() {local i, j, sizeofvec
+
+for i = 2, $1+1 {
+	f1[i-2].ropen($si)
+	sizeofvec = f1[i-2].scanvar
+	fileData_vec[i-2].resize(sizeofvec)
+	fileData_vec[i-2].scanf(f1[i-2])
+}
+}
+
+//************************************************************************
+
+getData (numfiles, "pgc.hoc", "pmc.hoc", "pbc.hoc", "phc.hoc")
+
+pgc_vec = fileData_vec[0].c
+if (randnet == 0) {pgc_vec.x[0] = pgc_vec.x[0] * percentSclerosis/100}
+pmc_vec = fileData_vec[1].c
+pbc_vec = fileData_vec[2].c
+phc_vec = fileData_vec[3].c
+
+getData (numfiles, "gcdist.hoc", "mcdist.hoc", "bcdist.hoc", "hcdist.hoc")
+
+gcdist_vec = fileData_vec[0].c
+mcdist_vec = fileData_vec[1].c
+bcdist_vec = fileData_vec[2].c
+hcdist_vec = fileData_vec[3].c
+
+objref probConnection, distribution, randnum, synRand
+
+//************************************************************************
+
+// This procedure sets up a uniform random distribution of numbers between 0
+// and 1.  It is used in connectCells.
+
+proc setupRand() {
+
+    // ropen("/proc/uptime")		// get a seed  that is changing based on the processing time
+	 {			
+	//rseed = fscan()		// so simulation will not start with the same seed
+		
+	}
+rseed = 5678
+randnum = new Random(rseed)			// use for syn.connections 
+randnum.uniform(0,1)
+}
+
+//************************************************************************
+
+
+//************************************************************************
+
+// This procedure sets up a uniform random distribution of numbers between 0
+// and 1.  It is used in connectCells.
+
+proc setupSynRand() {
+
+     //ropen("/proc/uptime")		// get a seed  that is changing based on the processing time
+	// {			
+	//rseed = fscan()		// so simulation will not start with the same seed
+		
+	//}
+
+rseed = 1234
+synRand = new Random(rseed)			// use for syn.connections 
+synRand.discunif(0,synRandomizer)
+}
+
+//************************************************************************
+
+
+//************************************************************************
+proc getSynapseData () {
+     
+     strdef tempString
+     f2 = new File()
+
+     sprint(tempString,"%s.%s",$s1,$s2)
+     f2.ropen(tempString)
+     synRandomizer = f2.scanvar
+     synNumber = f2.scanvar
+     synWeight = f2.scanvar
+     synDelay = f2.scanvar
+     synThreshold = f2.scanvar
+     
+}
+
+//************************************************************************
+
+
+objref connectionMatrix, numCons
+
+numCons = new File()
+
+//************************************************************************
+
+// This procedure determines which cells will connect to each other and
+// calls the appropriate functions/procedures to make the connections.
+// It takes 8 arguments, but should basically always be called from the
+// procedure, makeConnections.  The eight arguments are, in order,
+// precellType, postcellType, precellStart, precellEnd, postcellStart
+// postcellEnd, precellType_string, postcellType_string.
+
+proc connectCells () {local precellType, postcellType, precellStart, precellEnd, postcellStart, postcellEnd, i, j, counterx, randSynNumber
+
+     precellType = $1
+     postcellType = $2
+     precellStart = $3
+     precellEnd = $4
+     postcellStart = $5
+     postcellEnd = $6
+     counterx = 0
+
+
+getSynapseData($s7, $s8)
+print "Hello! I am currently connecting: ", $s7, "s to ", $s8, "s."
+
+     setupRand()
+     setupSynRand()
+
+     prob = probConnection.x[postcellType - 1]
+     if (prob != 0) {
+	for i = precellStart, precellEnd {
+	   for j = postcellStart, postcellEnd {
+	      distNumber = dentateBins + ((totalPosition_vec.x[i] - totalPosition_vec.x[j]) / dentateBinSize)
+	        if (randnum.repick < (scalingFactor * prob * distribution.x[distNumber-1])) {
+		   randSynNumber = synRand.repick
+		   nc_append(i, j, randSynNumber + synNumber, synWeight, synDelay, synThreshold)
+
+		   counterx += 1
+		}
+	   }    
+if (i%100 == 0) {print "This is the cell number I am currently on: ", i}
+
+        } 
+     }
+     if ((percentSclerosis != 100) || !((precellType == 2) || (precellType == 4) || (postcellType == 2) || (postcellType == 4))) { 
+	numCons.printf("%d\t%d\t%d\n",precellType,postcellType,counterx)
+     } else {numCons.printf("%d\t%d\t%d\n",precellType,postcellType,0)}
+}
+
+//************************************************************************
+
+
+//************************************************************************
+
+// This procedure is called from the program's main body and sets up the
+// options which will be used in a call to connectCells.  It takes two
+// arguments, which are integers between 0 and numCellTypes (currently 4)
+// and these integers correspond to the cell types that you want to connect
+// to each other.
+// 1 = granule; 2 = mossy; 3 = basket; 4 = HIPP; 0 = ALL
+// The first argument indicates the presynaptic cell type, and the second
+// the postsynaptic cell type.
+// e.g. makeConnections (0, 0) will connect all presynaptic cell types to all
+// postsynaptic cell types.
+// makeConnections (1,2) will only connect granule cells to mossy cells.
+
+proc makeConnections () {local precellType, postcellType, precellStart, precellEnd, postcellStart, postcellEnd
+
+strdef precellType_string, postcellType_string
+distribution = new Vector()
+probConnection = new Vector ()
+     precellType = $1
+     postcellType = $2
+
+     if (precellType == 1) {
+	distribution = gcdist_vec
+	precellType_string = "gcell"
+	probConnection = pgc_vec
+	precellStart = 0
+	precellEnd = ngcell - 1
+     } 
+     if (precellType == 2) {
+	distribution = mcdist_vec
+	precellType_string = "mcell"
+	probConnection = pmc_vec
+	precellStart = ngcell
+	precellEnd = ngcell + nmcell - 1
+     } 
+     if (precellType == 3) {
+	distribution = bcdist_vec
+	precellType_string = "bcell"
+	probConnection = pbc_vec
+	precellStart = ngcell + nmcell
+	precellEnd = ngcell + nmcell + nbcell - 1
+     } 
+     if (precellType == 4) {
+	distribution = hcdist_vec
+	precellType_string = "hcell"
+	probConnection = phc_vec
+	precellStart = ngcell + nmcell + nbcell
+	precellEnd = ngcell + nmcell + nbcell + nhcell - 1
+     } 
+     if (precellType == 0) {
+	for i = 1, numCellTypes {
+	    makeConnections (i, postcellType)
+	}
+     }     
+
+
+     if (postcellType == 1) {
+	postcellStart = 0
+	postcellEnd = ngcell - 1
+	postcellType_string = "gcell"
+     } 
+     if (postcellType == 2) {
+	postcellStart = ngcell
+	postcellEnd = ngcell + nmcell - 1
+	postcellType_string = "mcell"
+     } 
+     if (postcellType == 3) {
+	postcellStart = ngcell + nmcell
+	postcellEnd = ngcell + nmcell + nbcell - 1
+	postcellType_string = "bcell"
+     } 
+     if (postcellType == 4) {
+	postcellStart = ngcell + nmcell + nbcell
+	postcellEnd = ngcell + nmcell + nbcell + nhcell - 1
+	postcellType_string = "hcell"
+     } 
+     if ((postcellType == 0) && (precellType != 0)) {
+	for j = 1, numCellTypes {
+	    makeConnections (precellType, j)
+	}
+     }
+
+     if ((precellType != 0) && (postcellType != 0)) {
+          connectCells (precellType, postcellType, precellStart, precellEnd, postcellStart, postcellEnd, precellType_string, postcellType_string)
+     }
+}
+
+//************************************************************************
+
+
+//**************Perforant Path  synaptic connections ******************************
+proc initNet() { local i,j
+for i=0, npp-1 {
+
+	for j=int(0.45*ngcell) - 1, int(0.54*ngcell) - 1 {	
+	nc_append(i+ngcell+nbcell+nmcell+nhcell, j, 0, 2e-2, 3, 10)  
+	nc_append(i+ngcell+nbcell+nmcell+nhcell, j, 1, 2e-2, 3, 1)  
+	}
+
+	for j= ngcell+nmcell+int(0.45*nbcell) -	1, ngcell+nmcell+int(0.54*nbcell) - 1 { 
+	nc_append(ngcell+nbcell+nmcell+nhcell, j, 0, 1e-2, 3, 10) 
+	nc_append(ngcell+nbcell+nmcell+nhcell, j, 1, 1e-2, 3, 10)  
+	}
+
+	synRandomizer = 3
+	setupSynRand()
+	for j=ngcell + int(0.45*nmcell) -1, ngcell + int(0.45*nmcell) - 1{ 
+	nc_append(ngcell+nbcell+nmcell+nhcell, j, synRand.repick, 1.75e-2, 3, 10)  
+        }
+	for j=ngcell + int(0.46*nmcell) -1, ngcell + int(0.46*nmcell) - 1{ 
+	nc_append(ngcell+nbcell+nmcell+nhcell, j, synRand.repick, 1.75e-2, 3, 10)  
+        }
+	for j=ngcell + int(0.47*nmcell) -1, ngcell + int(0.47*nmcell) - 1{ 
+	nc_append(ngcell+nbcell+nmcell+nhcell, j, synRand.repick, 1.75e-2, 3, 10)  
+        }
+	for j=ngcell + int(0.48*nmcell) -1, ngcell + int(0.48*nmcell) - 1{ 
+	nc_append(ngcell+nbcell+nmcell+nhcell, j, synRand.repick, 1.75e-2, 3, 10)  
+        }
+	for j=ngcell + int(0.49*nmcell) -1, ngcell + int(0.49*nmcell) - 1{ 
+	nc_append(ngcell+nbcell+nmcell+nhcell, j, synRand.repick, 1.75e-2, 3, 10)  
+        }
+	for j=ngcell + int(0.50*nmcell) -1, ngcell + int(0.50*nmcell) - 1{ 
+	nc_append(ngcell+nbcell+nmcell+nhcell, j, synRand.repick, 1.75e-2, 3, 10)  
+        }
+	for j=ngcell + int(0.51*nmcell) -1, ngcell + int(0.51*nmcell) - 1{ 
+	nc_append(ngcell+nbcell+nmcell+nhcell, j, synRand.repick, 1.75e-2, 3, 10)  
+        }
+	for j=ngcell + int(0.52*nmcell) -1, ngcell + int(0.52*nmcell) - 1{ 
+	nc_append(ngcell+nbcell+nmcell+nhcell, j, synRand.repick, 1.75e-2, 3, 10)  
+        }
+	for j=ngcell + int(0.53*nmcell) -1, ngcell + int(0.53*nmcell) - 1{ 
+	nc_append(ngcell+nbcell+nmcell+nhcell, j, synRand.repick, 1.75e-2, 3, 10)  
+        }
+	for j=ngcell + int(0.54*nmcell) -1, ngcell + int(0.54*nmcell) - 1{ 
+	nc_append(ngcell+nbcell+nmcell+nhcell, j, synRand.repick, 1.75e-2, 3, 10)  
+        }
+
+
+
+}
+}
+
+//******************************************************************************************
+
+objref killList, killWhich
+//******************************************************************************************
+proc killHilarCells () { local h, i, j, killCount, numKill, cell2Kill, percentKill, killIndex
+   killCount = 0
+   percentKill = $1
+   killList = new List()
+   synRandomizer = nmcell - 1
+   setupSynRand()
+   numKill = int(percentKill * nmcell / 100)
+   if (numKill != 0) {
+   killWhich = new Vector(numKill, -1)
+   while (killCount != numKill) {
+	cell2Kill = synRand.repick()
+	if (killWhich.contains(cell2Kill) == 0) {
+	   killWhich.x(killCount) = cell2Kill
+	   killCount += 1
+	}
+   } 
+
+   for h = 0, killWhich.size - 1 {
+
+      killList = cvode.netconlist(MossyCell[killWhich.x(h)],"","")
+      print "Now killing MossyCell #",killWhich.x(h)
+      i = int((mcellPos.x(killWhich.x(h))-0.5*dentateBinSize)/dentateBinSize)
+      for j = 0, killList.count-1 {
+	 killIndex = nclist[i].index(killList.object(j))
+	 if (killIndex != -1) {
+	    nclist[i].remove(killIndex)
+	 }
+      }
+   }
+killList.remove_all()
+}
+
+   killCount = 0
+   numKill = int(percentKill * nmcell / 100)
+   if (numKill != 0) {
+   killWhich.x[0]= -1
+   while (killCount != numKill) {
+	cell2Kill = synRand.repick()
+	if (killWhich.contains(cell2Kill) == 0) {
+	   killWhich.x(killCount) = cell2Kill
+	   killCount += 1
+	}
+   } 
+
+   for h = 0, killWhich.size - 1 {
+
+      killList = cvode.netconlist(HIPPCell[killWhich.x(h)],"","")
+      print "Now killing HIPPCell #",killWhich.x(h)
+      i = int((hcellPos.x(killWhich.x(h))-0.5*dentateBinSize)/dentateBinSize)
+      for j = 0, killList.count-1 {
+	 killIndex = nclist[i].index(killList.object(j))
+	 if (killIndex != -1) {
+	    nclist[i].remove(killIndex)
+	 }
+      }
+   }
+killList.remove_all()
+}
+}
+
+//******************************************************************************************
+
+
+objref connectionFile, cellsFile
+//******************************************************************************************
+
+proc writeConnections () {local i,j
+
+print "I am writing cells.dat.\n"
+
+cellsFile = new File()
+connectionFile = new File()
+cellsFile.wopen("cells.dat")
+connectionFile.wopen("connections.dat")
+if (percentSclerosis != 100) {cellsFile.printf("%d\n%d\n%d\n%d\n%d\n",ngcell,nmcell,nbcell,nhcell,totalCells)}
+if (percentSclerosis == 100) {cellsFile.printf("%d\n%d\n%d\n%d\n%d\n",ngcell,nmcell-1,nbcell,nhcell-1,totalCells-2)}
+cellsFile.close()
+
+print "I am writing out the Connection Matrix to connections.dat.  This may take a few minutes.\n"
+for i = 0, totalCells-1 {
+    if ((percentSclerosis != 100) || !((i == ngcell + nmcell - 1) || (i == ngcell + nmcell + nbcell + nhcell - 1))) {
+       for j = 0, totalCells-1 {
+	   if ((percentSclerosis != 100) && (connectionMatrix.getval[i][j] == 1)) {connectionFile.printf("%d\t",j)}
+	   if ((percentSclerosis == 100) && (connectionMatrix.getval[i][j] == 1)) {
+	      if (j < ngcell) {connectionFile.printf("%d\t",j)}
+	      if (j > ngcell && j < ngcell+nmcell+nbcell) {connectionFile.printf("%d\t",j-1)}
+	   }
+       }
+       connectionFile.printf ("-1\n")
+    }
+if (i == int(totalCells/2)) {print "I am halfway done writing connections.dat.  Please wait.\n"}
+}
+}
+
+//******************************************************************************************
+
+objref VmMat
+first_time_called = 1
+double time_before[cells.count-1]
+double time [cells.count-1]
+double time_after [cells.count-1]
+VmMat = new Matrix(tstop*10, totalCells, 2)
+
+proc VecMx() { local i
+	for i=0, cells.count-2 {
+	    if (first_time_called == 1) {
+	       time_before[i] = 7000
+	       time_after[i] = -7000
+	       time[i] = 7000
+	    }   
+
+	    time_before[i] = time[i]
+	    time[i] = time_after[i]
+	    time_after[i] = cells.object[i].soma.v(0.5)
+
+	    if ((time[i]>0)&&(time[i]>time_before[i])&&(time[i]>time_after[i])) {
+		VmMat.x[t*10-1][i]=1}
+	}
+	first_time_called = 0
+}
+
+objref dfile
+dfile = new File()
+
+proc SpkMx() { local i, j
+dfile.wopen("spikerast.txt")
+
+	for i=0, VmMat.nrow-1 {
+	    for j = 0, cells.count-2 {
+		if(VmMat.getval(i,j)==1) {
+		   dfile.printf("%f\t%d\n", i/10, j)}
+	    }   
+	}
+dfile.close("spikerast.txt")
+}
+
+
+
+objref r_plt
+proc initrPlt() {
+	r_plt = new Graph(0)
+	r_plt.size(0, tstop,0, cells.count)
+	r_plt.label(0.95, 0.02, "ms")
+	r_plt.label(0.01, 0.82, "neu")
+	r_plt.view(0,0, tstop, cells.count,320,20,300,230)
+}
+ initrPlt()
+
+
+
+//################################################################################################
+proc init() { local dtsav, temp, secsav
+finitialize(v_init)
+t = -500
+dtsav = dt
+secondorder =0
+dt= 10
+	// if cvode is on, turn it off to do large fixed step
+temp= cvode.active()
+if (temp!=0) {cvode.active(0)}
+while(t<-100) { fadvance() print t}
+	//restore cvode if reqd
+if (temp!=0) {cvode.active(1)}
+dt = dtsav
+secondorder =2
+t = 0
+if (cvode.active()){
+cvode.re_init()
+}else{
+fcurrent()
+}
+frecord_init()  // added on March 11, 2014 by Marianne Bezaire. If this is left out, the recording index will
+				// not be reset. It must be reset because the repeated calls to fadvance() during the
+				// while loop above increment the recording index. This means that recordings using the vector
+				// record method (for example, to record soma potential) will have their indices shifted by the
+				// number of times fadvance() was called, causing a delay in the readout of the recorded variable.
+}
+proc continuerun() {local rt
+	eventcount =0
+	eventslow =1
+	stoprun =0
+	if (using_cvode_) {
+	cvode.event($1)
+	}
+	while(t < $1 && stoprun == 0) {
+	step()
+	VecMx()
+	rt = stopsw()
+	if (rt > realtime) {
+		realtime = rt
+		if (!stdrun_quiet) fastflushPlot()
+		doNotify()
+		if (realtime == 2 && eventcount > 50) {
+			eventslow = int(eventcount/50)+1
+		}
+		eventcount = 0
+	}else{
+		eventcount = eventcount +1
+		if ((eventcount%eventslow) == 0) {
+			doEvents()
+		}
+	}
+	}
+	flushPlot()
+}
+
+objectvar save_window_, rvp_
+objectvar scene_vector_[4]
+objectvar ocbox_, ocbox_list_, scene_, scene_list_
+{ocbox_list_ = new List()  scene_list_ = new List()}
+
+{
+xpanel("RunControl", 0)
+v_init = -60
+xvalue("Init","v_init", 1,"stdinit()", 1, 1 )
+xbutton("Init & Run","run()")
+xbutton("Stop","stoprun=1")
+runStopAt = 5
+xvalue("Continue til","runStopAt", 1,"{continuerun(runStopAt) stoprun=1}", 1, 1 )
+runStopIn = 1
+xvalue("Continue for","runStopIn", 1,"{continuerun(t + runStopIn) stoprun=1}", 1, 1 )
+xbutton("Single Step","steprun()")
+t = 0
+xvalue("t","t", 2 )
+tstop = 100	//1500
+xvalue("Tstop","tstop", 1,"tstop_changed()", 0, 1 )
+dt = 0.1
+xvalue("dt","dt", 1,"setdt()", 0, 1 )
+steps_per_ms = 10	//40
+xvalue("Points plotted/ms","steps_per_ms", 1,"setdt()", 0, 1 )
+xpanel(544,121)
+}
+{
+
+
+save_window_ = new Graph(0)
+save_window_.size(0,100,-80,40)
+scene_vector_[2] = save_window_
+{save_window_.view(0, -80, 100, 120, 290, 470, 579.84, 208)}
+graphList[0].append(save_window_)
+save_window_.save_name("graphList[0].")
+
+/*save_window_.addexpr("Gcell[50].soma.v(0.5)",1,1)
+save_window_.addexpr("Bcell[10].soma.v(0.5)",2,1)
+save_window_.addexpr("Mcell[10].soma.v(0.5)",3,1)
+save_window_.addexpr("Hcell[4].soma.v(0.5)",4,1)
+save_window_.addexpr("Gcell[25].soma.v(0.5)",5,1)*/
+save_window_.addexpr("Gcell[2].soma.v(0.5)",1,1)
+save_window_.addexpr("Bcell[2].soma.v(0.5)",2,1)
+save_window_.addexpr("Mcell[3].soma.v(0.5)",3,1)
+save_window_.addexpr("Hcell[1].soma.v(0.5)",4,1)
+
+}
+
+proc rrun(){
+numCons.wopen("numCons.dat")
+makeConnections(0,0)
+numCons.close()
+//if (percentSclerosis == 100) {killHilarCells(percentSclerosis)}
+//writeConnections()
+initNet()
+// below two lines moved outside below to create start button
+// so that initialization of network simulation and running
+// the simulation are seperated in case the model wants to be
+// browsed or parameters of the run are desired to be modified
+// run()
+// SpkMx()
+}
+
+rrun()
+
+xpanel("Start button for Morgan et al. 2007, 2008")
+  xlabel("press below \"Start\" for an under 2 minute")
+  xlabel("simulation (on a 2.8 GHz Pentium 4)")
+  xbutton("Start","{run() SpkMx()}")
+  xbutton("Quit","quit()")
+xpanel()
+
+objectvar scene_vector_[1]
+{doNotify()}
