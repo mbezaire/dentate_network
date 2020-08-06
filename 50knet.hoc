@@ -6,7 +6,7 @@ secondorder=2
 tstep=0
 period=2
 dt=0.1
-tstop=100	//1500
+tstop=1500
 
 objref parameters
 
@@ -29,6 +29,12 @@ if (nmcell == 0) {nmcell = 1}
 if (nhcell == 0) {nhcell = 1}
 totalCells = ngcell + nmcell + nbcell + nhcell
 
+
+print "Granule Cell #s range from:", 0, " to ", ngcell - 1
+print "Basket Cell #s range from:", ngcell, " to ", ngcell + nbcell - 1
+print "Mossy Cell #s range from:", ngcell + nbcell, " to ", ngcell + nbcell + nmcell - 1
+print "Granule Cell #s range from:", ngcell + nbcell + nmcell, " to ", ngcell + nbcell + nmcell + nhcell - 1
+print "Stimulating cell # should be: ", ngcell + nbcell + nmcell + nhcell
 
 //***********************************************************************************************
 //Defining granule cell
